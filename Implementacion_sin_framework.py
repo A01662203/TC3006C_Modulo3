@@ -1,6 +1,5 @@
 # Importar librerías necesarias para el análisis y visualización de datos
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
 
 def generar_datos_con_sesgo(num_samples, bias=True, bias_strength=-2):
@@ -36,7 +35,7 @@ X, y = generar_datos_con_sesgo(num_samples, bias_strength=2.5)
 # Mostrar una gráfica de los datos generados
 plt.figure(figsize=(8, 6))
 plt.scatter(X[:, 1], X[:, 2], c=y, cmap='viridis')
-plt.title('Datos Generados con Mayor Bias')
+plt.title('Datos Generados con Sesgo')
 plt.xlabel('Característica 1')
 plt.ylabel('Característica 2')
 plt.show()
@@ -45,33 +44,38 @@ plt.show()
 def sigmoid(z):
     return 1 / (1 + np.exp(-z))
 
-# Función de costo (log-loss) para la regresión logística
+# Función de costo (log-loss) para la regresión logística sin epsilon
 def cost_function(X, y, theta):
     m = len(y)  # Número de muestras
     h = sigmoid(X.dot(theta))  # Predicciones usando la función sigmoide
-    epsilon = 1e-5  # Valor pequeño para evitar log(0)
     
     # Calcular el costo usando log-loss, que mide la diferencia entre predicciones y etiquetas verdaderas
-    cost = (1/m) * (((-y).T.dot(np.log(h + epsilon))) - ((1-y).T.dot(np.log(1-h + epsilon))))
+    cost = (1/m) * (((-y).T.dot(np.log(h))) - ((1-y).T.dot(np.log(1-h))))
     
     # Calcular el gradiente, que indica la dirección en la que se debe ajustar theta para minimizar el costo
     grad = (1/m) * (X.T.dot(h-y))
     return cost, grad
 
-# Función de gradiente descendente para optimizar los pesos (coeficientes)
-def gradient_descent(X, y, theta, alpha, iters):
+# Función de gradiente descendente con criterio de convergencia basado en la diferencia de costo y un umbral de costo
+def gradient_descent(X, y, theta, alpha, tolerance=0.001, max_iters=10000, cost_threshold=0.01):
     m = len(y)  # Número de muestras
-    for i in range(iters):
-        h = sigmoid(X.dot(theta))  # Predicciones usando la función sigmoide
-        gradient = (1/m) * (X.T.dot(h-y))  # Cálculo del gradiente
+    cost_history = []  # Para guardar la historia de los costos
+    for i in range(max_iters):
+        cost, gradient = cost_function(X, y, theta)
+        theta -= alpha * gradient  # Actualizar los coeficientes
         
-        # Actualizar los coeficientes en la dirección negativa del gradiente
-        theta -= alpha * gradient
+        # Guardar el costo actual en la historia
+        cost_history.append(cost)
+        
+        # Si no es la primera iteración y la diferencia de costo es menor que la tolerancia, y el costo actual es menor a cost_threshold, detener
+        if i > 0 and abs(cost_history[-2] - cost_history[-1]) < tolerance and cost < cost_threshold:
+            print(f'Convergencia alcanzada en la iteración {i}')
+            break
         
         # Imprimir el costo cada 1000 iteraciones para monitorear el progreso
         if i % 1000 == 0:
-            cost, _ = cost_function(X, y, theta)
-            print(f"Cost at iteration {i}", cost)
+            print(f"Costo en la iteración {i}: {cost}")
+    
     return theta
 
 # Función de predicción usando un umbral para determinar la clase (0 o 1)
@@ -81,16 +85,15 @@ def predict(X, theta, threshold=0.5):
 # Inicializar los pesos (coeficientes) en cero
 theta = np.zeros(X.shape[1])
 
-# Definir la tasa de aprendizaje (alpha) y el número de iteraciones para el gradiente descendente
+# Definir la tasa de aprendizaje (alpha)
 alpha = 0.1
-iters = 10000
 
 # Calcular el costo inicial con los pesos iniciales
 initial_cost, _ = cost_function(X, y, theta)
 print(f'Costo inicial: {initial_cost}')
 
 # Ejecutar el algoritmo de gradiente descendente para ajustar los pesos
-theta = gradient_descent(X, y, theta, alpha, iters)
+theta = gradient_descent(X, y, theta, alpha)
 
 # Calcular el costo final después de la optimización
 final_cost, _ = cost_function(X, y, theta)
